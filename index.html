@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User App - Posts & Games</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; padding-bottom: 70px; }
+        .app-header { background: #dc3545; color: white; padding: 15px; text-align: center; font-size: 20px; font-weight: bold; }
+        .container { padding: 15px; max-width: 600px; margin: auto; }
+        
+        /* Views Switcher */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        /* Posts Styles (Prana Option) */
+        .post-card { background: white; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow: hidden; }
+        .post-header { padding: 12px; font-weight: bold; font-size: 15px; color: #333; border-bottom: 1px solid #eee; }
+        .post-image-container { position: relative; width: 100%; background: #000; }
+        .post-image-container img { width: 100%; display: block; height: auto; }
+        .post-actions { display: flex; justify-content: space-around; padding: 10px; border-top: 1px solid #eee; background: #fafafa; }
+        .action-btn { background: none; border: none; font-size: 16px; cursor: pointer; font-weight: bold; color: #555; display: flex; align-items: center; gap: 5px; }
+        .action-btn.active { color: #dc3545; }
+
+        /* Games Grid */
+        .games-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .game-card { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); cursor: pointer; transition: 0.2s; }
+        .game-card:hover { transform: translateY(-3px); }
+        .game-card img { width: 80px; height: 80px; object-fit: cover; border-radius: 12px; margin-bottom: 10px; }
+        .game-card h3 { font-size: 16px; color: #333; margin: 0; }
+        
+        /* Full Screen Game Player Modal */
+        #gamePlayerScreen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 999; flex-direction: column; }
+        .player-header { background: #333; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .exit-btn { background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        #gameIframe { width: 100%; height: 100%; border: none; flex: 1; }
+
+        /* Bottom Nav Bar */
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; display: flex; border-top: 1px solid #ddd; height: 60px; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); z-index: 99; }
+        .nav-item { flex: 1; text-align: center; padding: 12px 0; color: #666; text-decoration: none; font-size: 14px; font-weight: bold; cursor: pointer; border: none; background: none; }
+        .nav-item.active { color: #dc3545; }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+    <!-- HOME VIEW (Posts & Save option) -->
+    <div id="homeView" class="view-section active">
+        <div class="app-header">YOUR SHIRE</div>
+        <div class="container" id="postsContainer">
+            <p style="text-align: center; color: #777; margin-top: 20px;">Loading posts...</p>
+        </div>
+    </div>
+
+    <!-- GAMES VIEW -->
+    <div id="gamesView" class="view-section">
+        <div class="app-header">🎮 Game Zone</div>
+        <div class="container">
+            <div class="games-grid" id="gamesGrid">
+                <p style="text-align: center; color: #777; grid-column: span 2;">Loading games...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Player Fullscreen Modal -->
+    <div id="gamePlayerScreen">
+        <div class="player-header">
+            <span id="playingGameTitle" style="font-weight: bold;">Game</span>
+            <button class="exit-btn" onclick="exitGame()"> Quick Game</button>
+        </div>
+        <iframe id="gameIframe"></iframe>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="bottom-nav">
+        <button class="nav-item active" onclick="switchTab('home')" id="navHome">🏠 Home</button>
+        <button class="nav-item" onclick="switchTab('games')" id="navGames">🎮 game/apps</button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+          apiKey: "AIzaSyAHEabZUR0hKQP4QDvE89_tttOYTCbuBn8",
+          authDomain: "eleadarena.firebaseapp.com",
+          projectId: "eleadarena",
+          storageBucket: "eleadarena.firebasestorage.app",
+          messagingSenderId: "363126666139",
+          appId: "1:363126666139:web:35f572d60114109ef9e73e",
+          measurementId: "G-4MNDBVZ4XT"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Tab Switching Logic
+        function switchTab(tab) {
+            const homeView = document.getElementById('homeView');
+            const gamesView = document.getElementById('gamesView');
+            const navHome = document.getElementById('navHome');
+            const navGames = document.getElementById('navGames');
+
+            if (tab === 'home') {
+                homeView.classList.add('active');
+                gamesView.classList.remove('active');
+                navHome.classList.add('active');
+                navGames.classList.remove('active');
+            } else if (tab === 'games') {
+                gamesView.classList.add('active');
+                homeView.classList.remove('active');
+                navGames.classList.add('active');
+                navHome.classList.remove('active');
+            }
+        }
+
+        // Load Posts (Home) with Like & Save features
+        db.collection('posts').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+            const container = document.getElementById('postsContainer');
+            container.innerHTML = '';
+
+            if (snapshot.empty) {
+                container.innerHTML = '<p style="text-align: center; color: #777; margin-top: 20px;">Yahan koi posts nahi hain.</p>';
+                return;
+            }
+
+            snapshot.docs.forEach((doc) => {
+                const post = doc.data();
+                const postId = doc.id;
+
+                const card = document.createElement('div');
+                card.className = 'post-card';
+                card.innerHTML = `
+                    <div class="post-header">${post.title || ''}</div>
+                    <div class="post-image-container">
+                        <img src="${post.image}" alt="Post Image">
+                    </div>
+                    <div class="post-actions">
+                        <button class="action-btn ${post.liked ? 'active' : ''}" onclick="toggleLike('${postId}', ${post.liked})">
+                            ${post.liked ? '💞 Liked' : '💝 Like'}
+                        </button>
+                        <button class="action-btn ${post.saved ? 'active' : ''}" onclick="toggleSave('${postId}', ${post.saved})">
+                            ${post.saved ? '🔖 Saved' : '📑 Save'}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        });
+
+        async function toggleLike(id, currentStatus) {
+            try {
+                await db.collection('posts').doc(id).update({ liked: !currentStatus });
+            } catch (err) {
+                console.error("Error updating like: ", err);
+            }
+        }
+
+        async function toggleSave(id, currentStatus) {
+            try {
+                await db.collection('posts').doc(id).update({ saved: !currentStatus });
+            } catch (err) {
+                console.error("Error updating save: ", err);
+            }
+        }
+
+        // Load Games from Firestore
+        db.collection('games').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
+            const grid = document.getElementById('gamesGrid');
+            grid.innerHTML = '';
+
+            if (snapshot.empty) {
+                grid.innerHTML = '<p style="text-align: center; color: #777; grid-column: span 2;">Koi game available nahi hai.</p>';
+                return;
+            }
+
+            snapshot.docs.forEach(doc => {
+                const game = doc.data();
+                const card = document.createElement('div');
+                card.className = 'game-card';
+                card.innerHTML = `
+                    <img src="${game.icon}" alt="Icon">
+                    <h3>${game.title}</h3>
+                `;
+                card.onclick = () => launchGame(game.title, game.code);
+                grid.appendChild(card);
+            });
+        });
+
+        function launchGame(title, code) {
+            document.getElementById('playingGameTitle').innerText = title;
+            const iframe = document.getElementById('gameIframe');
+            document.getElementById('gamePlayerScreen').style.display = 'flex';
+            
+            const blob = new Blob([code], { type: 'text/html' });
+            iframe.src = URL.createObjectURL(blob);
+        }
+
+        function exitGame() {
+            document.getElementById('gamePlayerScreen').style.display = 'none';
+            document.getElementById('gameIframe').src = '';
+        }
+    </script>
+</body>
+</html>
