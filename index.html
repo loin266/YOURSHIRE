@@ -199,12 +199,12 @@
             document.getElementById('gameIframe').src = '';
         }
 
-        // Service Worker Registration
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/pwabuilder-sw.js');
-            });
-        }
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./pwabuilder-sw.js');
+    });
+}
     </script>
 </body>
 </html>
