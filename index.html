@@ -198,6 +198,13 @@
             document.getElementById('gamePlayerScreen').style.display = 'none';
             document.getElementById('gameIframe').src = '';
         }
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/pwabuilder-sw.js');
+            });
+        }
     </script>
 </body>
 </html>
